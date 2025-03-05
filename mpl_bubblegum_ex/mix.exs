@@ -21,7 +21,9 @@ defmodule MplBubblegum.MixProject do
 
   defp deps do
     [
-      {:rustler, "~> 0.29.1"}
+      {:rustler, "~> 0.29.1"},
+      {:solana, "~> 0.2.0"},
+      {:jason, "~> 1.4"}
     ]
   end
 

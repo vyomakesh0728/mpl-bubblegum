@@ -1,4 +1,3 @@
-use borsh::BorshSerialize;
 use solana_program::pubkey::Pubkey;
 use mpl_bubblegum::{
     instructions::{
@@ -19,13 +18,14 @@ pub fn create_tree_config(
     max_buffer_size: u32,
     public: Option<bool>,
 ) -> Result<Vec<u8>, Error> {
-    let args = CreateTreeConfigInstructionArgs {
+    let _args = CreateTreeConfigInstructionArgs {
         max_depth,
         max_buffer_size,
         public,
     };
 
-    let mut builder = CreateTreeConfigBuilder::new()
+    let mut builder_init = CreateTreeConfigBuilder::new();
+    let mut builder = builder_init
         .tree_config(tree_config)
         .merkle_tree(merkle_tree)
         .payer(payer)
@@ -58,7 +58,8 @@ pub fn mint_v1(
 ) -> Result<Vec<u8>, Error> {
     let args = MintV1InstructionArgs { metadata };
 
-    let builder = MintV1Builder::new()
+    let mut builder_init = MintV1Builder::new();
+    let builder = builder_init
         .tree_config(tree_config)
         .leaf_owner(leaf_owner)
         .leaf_delegate(leaf_delegate)
@@ -89,7 +90,7 @@ pub fn transfer(
     nonce: u64,
     index: u32,
 ) -> Result<Vec<u8>, Error> {
-    let args = TransferInstructionArgs {
+    let _args = TransferInstructionArgs {
         root,
         data_hash,
         creator_hash,
@@ -97,7 +98,8 @@ pub fn transfer(
         index,
     };
 
-    let builder = TransferBuilder::new()
+    let mut builder_init = TransferBuilder::new();
+    let builder = builder_init
         .tree_config(tree_config)
         .leaf_owner(leaf_owner, true) // Assuming leaf_owner is a signer
         .leaf_delegate(leaf_delegate, false) // Assuming leaf_delegate is not a signer
