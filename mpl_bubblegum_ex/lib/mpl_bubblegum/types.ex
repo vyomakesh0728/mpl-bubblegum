@@ -17,17 +17,12 @@ defmodule MplBubblegum.Types do
     @doc """
     Creates a new Pubkey from a base58 string.
     """
-    @spec from_base58(String.t()) :: {:ok, t()} | {:error, String.t()}
+    @spec from_base58(String.t()) :: {:ok, t()} | {:error, atom() | String.t()}
     def from_base58(base58) do
-      case Base.decode58(base58) do
-        {:ok, bytes} when byte_size(bytes) == 32 ->
-          {:ok, %__MODULE__{bytes: bytes}}
-
-        {:ok, _} ->
-          {:error, "Invalid public key length"}
-
-        :error ->
-          {:error, "Invalid base58 encoding"}
+      case B58.decode58(base58) do
+        {:ok, bytes} when byte_size(bytes) == 32 -> {:ok, %__MODULE__{bytes: bytes}}
+        {:ok, _} -> {:error, :invalid_length}
+        {:error, reason} -> {:error, reason}
       end
     end
 
@@ -36,7 +31,7 @@ defmodule MplBubblegum.Types do
     """
     @spec to_base58(t()) :: String.t()
     def to_base58(%__MODULE__{bytes: bytes}) do
-      Base.encode58(bytes)
+      B58.encode58(bytes)
     end
   end
 

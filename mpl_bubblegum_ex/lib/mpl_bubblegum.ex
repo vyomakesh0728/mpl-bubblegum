@@ -7,6 +7,7 @@ defmodule MplBubblegum do
   """
 
   alias MplBubblegum.Native
+  alias MplBubblegum.Types.Pubkey
 
   @doc """
   Creates a new compressed NFT tree configuration.
@@ -204,12 +205,17 @@ defmodule MplBubblegum do
   defp get_pubkey(params, key) do
     case Map.get(params, key) do
       nil -> {:error, "Missing required parameter: #{key}"}
+      %MplBubblegum.Types.Pubkey{} = pubkey -> {:ok, pubkey}
       value -> validate_pubkey(value)
     end
   end
 
-  defp validate_pubkey(pubkey) when is_binary(pubkey) and byte_size(pubkey) == 32 do
+  defp validate_pubkey(%MplBubblegum.Types.Pubkey{} = pubkey) do
     {:ok, pubkey}
+  end
+
+  defp validate_pubkey(pubkey) when is_binary(pubkey) and byte_size(pubkey) == 32 do
+    {:ok, %MplBubblegum.Types.Pubkey{bytes: pubkey}}
   end
 
   defp validate_pubkey(_) do

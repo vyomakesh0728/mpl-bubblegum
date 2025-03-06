@@ -3,75 +3,64 @@
 alias MplBubblegum.Types.{Pubkey, Hash, Creator, Collection, Uses, Metadata}
 alias Solana.RPC
 alias Solana.Transaction
-alias Solana.Keypair
+alias Solana.Key
 alias Solana.SystemProgram
 
 # Helper function to create a Pubkey from a base58 string
-pubkey_from_base58! = fn base58 ->
+_pubkey_from_base58! = fn base58 ->
   {:ok, pubkey} = Pubkey.from_base58(base58)
   pubkey
 end
 
-# Generate keypairs for testing
-IO.puts("Generating keypairs for testing...")
-payer_keypair = Keypair.generate()
-tree_creator_keypair = Keypair.generate()
+# Load keypairs from files
+IO.puts("Loading keypairs from files...")
 
-# Save keypairs to files for future use
-File.write!("./payer.json", Jason.encode!(payer_keypair))
-File.write!("./tree_creator.json", Jason.encode!(tree_creator_keypair))
+# Load payer keypair
+payer_json = Jason.decode!(File.read!("./payer.json"))
+payer_secret = Base.decode64!(payer_json["secret"])
+payer_public = Base.decode64!(payer_json["public"])
+payer_keypair = {payer_secret, payer_public}
+
+# Load tree creator keypair
+tree_creator_json = Jason.decode!(File.read!("./tree_creator.json"))
+tree_creator_secret = Base.decode64!(tree_creator_json["secret"])
+tree_creator_public = Base.decode64!(tree_creator_json["public"])
+tree_creator_keypair = {tree_creator_secret, tree_creator_public}
+
+# Extract public keys from keypairs
+{_, payer_public_key} = payer_keypair
+{_, tree_creator_public_key} = tree_creator_keypair
 
 # Print keypair public keys
-IO.puts("Payer public key: #{Keypair.to_b58(payer_keypair)}")
-IO.puts("Tree creator public key: #{Keypair.to_b58(tree_creator_keypair)}")
+IO.puts("Payer public key: #{Pubkey.to_base58(%Pubkey{bytes: payer_public_key})}")
+IO.puts("Tree creator public key: #{Pubkey.to_base58(%Pubkey{bytes: tree_creator_public_key})}")
 
 # Connect to Solana devnet
-rpc_client = Solana.RPC.client(network: :devnet)
-
-# Request airdrop for payer
-IO.puts("\nRequesting airdrop for payer...")
-case Solana.RPC.request_airdrop(payer_keypair.public_key, 1_000_000_000, client: rpc_client) do
-  {:ok, signature} ->
-    IO.puts("Airdrop requested with signature: #{signature}")
-    
-    # Wait for confirmation
-    IO.puts("Waiting for airdrop confirmation...")
-    case Solana.RPC.confirm_transaction(signature, client: rpc_client) do
-      {:ok, _} -> IO.puts("Airdrop confirmed!")
-      {:error, err} -> IO.puts("Airdrop confirmation failed: #{inspect(err)}")
-    end
-    
-  {:error, err} ->
-    IO.puts("Airdrop request failed: #{inspect(err)}")
-end
+rpc_client = Solana.RPC.client(cluster: "https://api.devnet.solana.com")
 
 # Check connection and get payer balance
 IO.puts("\nConnecting to Solana devnet...")
-case Solana.RPC.get_balance(payer_keypair.public_key, client: rpc_client) do
-  {:ok, balance} ->
-    IO.puts("Connected! Payer balance: #{balance / 1_000_000_000} SOL")
-  {:error, error} ->
-    IO.puts("Failed to connect: #{inspect(error)}")
-    System.halt(1)
-end
 
 # Example 1: Create a compressed merkle tree config
 IO.puts("\nExample 1: Create a compressed merkle tree config")
 
 # Generate random pubkeys for tree_config and merkle_tree
-tree_config_keypair = Keypair.generate()
-merkle_tree_keypair = Keypair.generate()
+tree_config_keypair = Solana.Key.pair()
+merkle_tree_keypair = Solana.Key.pair()
 
-tree_config = Pubkey.from_keypair(tree_config_keypair)
-merkle_tree = Pubkey.from_keypair(merkle_tree_keypair)
-payer = Pubkey.from_keypair(payer_keypair)
-tree_creator = Pubkey.from_keypair(tree_creator_keypair)
+{_, tree_config_public_key} = tree_config_keypair
+{_, merkle_tree_public_key} = merkle_tree_keypair
+
+tree_config = %Pubkey{bytes: tree_config_public_key}
+merkle_tree = %Pubkey{bytes: merkle_tree_public_key}
+payer = %Pubkey{bytes: payer_public_key}
+tree_creator = %Pubkey{bytes: tree_creator_public_key}
 
 create_tree_config_params = %{
-  tree_config: tree_config,
-  merkle_tree: merkle_tree,
-  payer: payer,
-  tree_creator: tree_creator,
+  tree_config: tree_config.bytes,
+  merkle_tree: merkle_tree.bytes,
+  payer: payer.bytes,
+  tree_creator: tree_creator.bytes,
   max_depth: 14,
   max_buffer_size: 64,
   public: true
@@ -83,7 +72,7 @@ case MplBubblegum.create_tree_config(create_tree_config_params) do
     IO.puts("Transaction size: #{byte_size(transaction)} bytes")
     
     # Get recent blockhash for transaction
-    {:ok, blockhash} = Solana.RPC.get_latest_blockhash(client: rpc_client)
+    {:ok, blockhash} = Solana.RPC.get_recent_blockhash(client: rpc_client)
     
     # Sign and submit transaction
     signed_tx = Transaction.sign(
@@ -99,22 +88,48 @@ case MplBubblegum.create_tree_config(create_tree_config_params) do
         # Confirm transaction with status updates
         IO.puts("Waiting for confirmation...")
         
-        {:ok, _} = Solana.RPC.confirm_transaction(
-          signature,
-          commitment: "confirmed",
-          client: rpc_client
-        )
+        # Poll for confirmation with timeout
+        start_time = System.monotonic_time(:millisecond)
+        max_wait_ms = 60_000
         
-        # Get transaction details
-        {:ok, tx_details} = Solana.RPC.get_transaction(
-          signature,
-          encoding: "json",
-          client: rpc_client
-        )
+        poll_confirmation = fn poll_fn ->
+          case Solana.RPC.get_signature_statuses([signature], client: rpc_client) do
+            {:ok, %{value: [%{confirmations: confirmations, confirmation_status: status} | _]}} ->
+              IO.puts("Status: #{status || "processing"}, Confirmations: #{confirmations || 0}")
+              if status == "confirmed" || status == "finalized" do
+                {:ok, status}
+              else
+                current_time = System.monotonic_time(:millisecond)
+                if current_time - start_time > max_wait_ms do
+                  {:error, :timeout}
+                else
+                  Process.sleep(2000)
+                  poll_fn.(poll_fn)
+                end
+              end
+            _ ->
+              Process.sleep(2000)
+              poll_fn.(poll_fn)
+          end
+        end
         
-        IO.puts("Transaction confirmed!")
-        IO.puts("Block time: #{tx_details.block_time}")
-        IO.puts("Slot: #{tx_details.slot}")
+        case poll_confirmation.(poll_confirmation) do
+          {:ok, status} -> 
+            IO.puts("Transaction #{status}!")
+            
+            # Get transaction details
+            {:ok, tx_details} = Solana.RPC.get_transaction(
+              signature,
+              encoding: "json",
+              client: rpc_client
+            )
+            
+            IO.puts("Block time: #{tx_details.block_time}")
+            IO.puts("Slot: #{tx_details.slot}")
+            
+          {:error, :timeout} -> 
+            IO.puts("Timed out waiting for confirmation")
+        end
         
       {:error, err} ->
         IO.puts("Transaction submission failed: #{inspect(err)}")
@@ -153,12 +168,12 @@ metadata = %Metadata{
 }
 
 mint_params = %{
-  tree_config: tree_config,
-  leaf_owner: leaf_owner,
-  leaf_delegate: leaf_delegate,
-  merkle_tree: merkle_tree,
-  payer: payer,
-  tree_creator_or_delegate: tree_creator_or_delegate,
+  tree_config: tree_config.bytes,
+  leaf_owner: leaf_owner.bytes,
+  leaf_delegate: leaf_delegate.bytes,
+  merkle_tree: merkle_tree.bytes,
+  payer: payer.bytes,
+  tree_creator_or_delegate: tree_creator_or_delegate.bytes,
   metadata: metadata
 }
 
@@ -168,7 +183,7 @@ case MplBubblegum.mint_v1(mint_params) do
     IO.puts("Transaction size: #{byte_size(transaction)} bytes")
     
     # Get recent blockhash for transaction
-    {:ok, blockhash} = Solana.RPC.get_latest_blockhash(client: rpc_client)
+    {:ok, blockhash} = Solana.RPC.get_recent_blockhash(client: rpc_client)
     
     # Sign and submit transaction
     signed_tx = Transaction.sign(
@@ -239,9 +254,10 @@ end
 IO.puts("\nExample 3: Transfer a compressed NFT")
 
 # Create a new keypair to represent the new owner
-new_leaf_owner_keypair = Keypair.generate()
-new_leaf_owner = Pubkey.from_keypair(new_leaf_owner_keypair)
-IO.puts("Generated new owner with public key: #{Keypair.to_b58(new_leaf_owner_keypair)}")
+new_leaf_owner_keypair = Solana.Key.pair()
+{_, new_leaf_owner_public_key} = new_leaf_owner_keypair
+new_leaf_owner = %Pubkey{bytes: new_leaf_owner_public_key}
+IO.puts("Generated new owner with public key: #{Pubkey.to_base58(new_leaf_owner)}")
 
 # Try to read the stored values from files
 nonce = case File.read("./nonce.txt") do
@@ -264,14 +280,14 @@ root = %Hash{bytes: :crypto.strong_rand_bytes(32)}
 index = nonce
 
 transfer_params = %{
-  tree_config: tree_config,
-  leaf_owner: leaf_owner,
-  leaf_delegate: leaf_delegate,
-  new_leaf_owner: new_leaf_owner,
-  merkle_tree: merkle_tree,
-  root: root,
-  data_hash: data_hash,
-  creator_hash: creator_hash,
+  tree_config: tree_config.bytes,
+  leaf_owner: leaf_owner.bytes,
+  leaf_delegate: leaf_delegate.bytes,
+  new_leaf_owner: new_leaf_owner.bytes,
+  merkle_tree: merkle_tree.bytes,
+  root: root.bytes,
+  data_hash: data_hash.bytes,
+  creator_hash: creator_hash.bytes,
   nonce: nonce,
   index: index
 }
@@ -282,7 +298,7 @@ case MplBubblegum.transfer(transfer_params) do
     IO.puts("Transaction size: #{byte_size(transaction)} bytes")
     
     # Get recent blockhash for transaction
-    {:ok, blockhash} = Solana.RPC.get_latest_blockhash(client: rpc_client)
+    {:ok, blockhash} = Solana.RPC.get_recent_blockhash(client: rpc_client)
     
     # Sign and submit transaction
     signed_tx = Transaction.sign(
@@ -328,103 +344,15 @@ case MplBubblegum.transfer(transfer_params) do
     IO.puts("Error creating transfer transaction: #{reason}")
 end
 
-# Example 4: Hash metadata
-IO.puts("\nExample 4: Hash metadata")
-
-case MplBubblegum.hash_metadata(metadata) do
-  {:ok, hash} ->
-    IO.puts("Metadata hash: #{Hash.to_hex(hash)}")
-
-  {:error, reason} ->
-    IO.puts("Error hashing metadata: #{reason}")
-end
-
-# Example 5: Hash creators
-IO.puts("\nExample 5: Hash creators")
-
-case MplBubblegum.hash_creators([creator]) do
-  {:ok, hash} ->
-    IO.puts("Creators hash: #{Hash.to_hex(hash)}")
-
-  {:error, reason} ->
-    IO.puts("Error hashing creators: #{reason}")
-end
-
-# Example 6: Get asset ID
-IO.puts("\nExample 6: Get asset ID")
-
-case MplBubblegum.get_asset_id(merkle_tree, nonce) do
-  {:ok, asset_id} ->
-    IO.puts("Asset ID: #{Pubkey.to_base58(asset_id)}")
-
-  {:error, reason} ->
-    IO.puts("Error getting asset ID: #{reason}")
-end
-
-# Example 7: Demonstrating a simple SOL transfer
-IO.puts("\nExample 7: Simple SOL transfer")
-
-recipient = new_leaf_owner
-amount = 10_000_000 # 0.01 SOL in lamports
-
-# Create a simple transfer instruction
-transfer_ix = SystemProgram.transfer(
-  from: payer,
-  to: recipient,
-  lamports: amount
-)
-
-# Create a transaction with the transfer instruction
-{:ok, transfer_tx} = Transaction.new(
-  instructions: [transfer_ix],
-  payer: payer
-)
-
-# Get recent blockhash
-{:ok, blockhash} = Solana.RPC.get_latest_blockhash(client: rpc_client)
-
-# Sign the transaction
-signed_transfer_tx = Transaction.sign(
-  transfer_tx,
-  [payer_keypair],
-  blockhash: blockhash
-)
-
-# Send the transaction
-case Solana.RPC.send_transaction(signed_transfer_tx, client: rpc_client) do
-  {:ok, signature} ->
-    IO.puts("Transfer transaction submitted with signature: #{signature}")
-    
-    # Wait for confirmation
-    case Solana.RPC.confirm_transaction(signature, client: rpc_client) do
-      {:ok, _} -> 
-        IO.puts("Transfer confirmed!")
-        
-        # Check recipient's balance
-        {:ok, new_balance} = Solana.RPC.get_balance(recipient, client: rpc_client)
-        IO.puts("Recipient's new balance: #{new_balance / 1_000_000_000} SOL")
-        
-      {:error, err} -> 
-        IO.puts("Transfer confirmation failed: #{inspect(err)}")
-    end
-    
-  {:error, err} ->
-    IO.puts("Transfer submission failed: #{inspect(err)}")
-end
-
 # Print summary of what was done
 IO.puts("\nSummary:")
 IO.puts("1. Created a compressed merkle tree config")
 IO.puts("2. Minted a compressed NFT")
 IO.puts("3. Transferred the compressed NFT to a new owner")
-IO.puts("4. Demonstrated hashing metadata")
-IO.puts("5. Demonstrated hashing creators")
-IO.puts("6. Demonstrated getting an asset ID")
-IO.puts("7. Demonstrated a simple SOL transfer")
 IO.puts("\nKeypair information:")
-IO.puts("Payer public key: #{Keypair.to_b58(payer_keypair)}")
-IO.puts("Tree creator public key: #{Keypair.to_b58(tree_creator_keypair)}")
-IO.puts("New owner public key: #{Keypair.to_b58(new_leaf_owner_keypair)}")
-IO.puts("\nKeypairs saved to:")
+IO.puts("Payer public key: #{Pubkey.to_base58(%Pubkey{bytes: elem(payer_keypair, 1)})}")
+IO.puts("Tree creator public key: #{Pubkey.to_base58(%Pubkey{bytes: elem(tree_creator_keypair, 1)})}")
+IO.puts("New owner public key: #{Pubkey.to_base58(%Pubkey{bytes: elem(new_leaf_owner_keypair, 1)})}")
+IO.puts("\nKeypairs used from:")
 IO.puts("- ./payer.json")
 IO.puts("- ./tree_creator.json")
