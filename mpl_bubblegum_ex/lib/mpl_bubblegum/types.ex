@@ -11,7 +11,7 @@ defmodule MplBubblegum.Types do
     defstruct [:bytes]
 
     @type t :: %__MODULE__{
-            bytes: binary()
+            bytes: binary() | list(integer())
           }
 
     @doc """
@@ -32,6 +32,14 @@ defmodule MplBubblegum.Types do
     @spec to_base58(t()) :: String.t()
     def to_base58(%__MODULE__{bytes: bytes}) do
       B58.encode58(bytes)
+    end
+
+    @doc """
+    Creates a new Pubkey from bytes.
+    """
+    @spec from_bytes(binary()) :: t()
+    def from_bytes(bytes) when byte_size(bytes) == 32 do
+      %__MODULE__{bytes: bytes}
     end
   end
 
@@ -80,7 +88,7 @@ defmodule MplBubblegum.Types do
     defstruct [:address, :verified, :share]
 
     @type t :: %__MODULE__{
-            address: Pubkey.t(),
+            address: binary(),
             verified: boolean(),
             share: integer()
           }

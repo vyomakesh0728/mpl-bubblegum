@@ -8,6 +8,7 @@ defmodule MplBubblegum do
 
   alias MplBubblegum.Native
   alias MplBubblegum.Types.Pubkey
+  alias MplBubblegum.Native.Pubkey, as: RustPubkey
 
   @doc """
   Creates a new compressed NFT tree configuration.
@@ -36,10 +37,10 @@ defmodule MplBubblegum do
          {:ok, max_buffer_size} <- get_integer(params, :max_buffer_size),
          public = Map.get(params, :public) do
       Native.create_tree_config(
-        tree_config,
-        merkle_tree,
-        payer,
-        tree_creator,
+        RustPubkey.to_rust_pubkey(tree_config),
+        RustPubkey.to_rust_pubkey(merkle_tree),
+        RustPubkey.to_rust_pubkey(payer),
+        RustPubkey.to_rust_pubkey(tree_creator),
         max_depth,
         max_buffer_size,
         public
@@ -74,14 +75,14 @@ defmodule MplBubblegum do
          {:ok, merkle_tree} <- get_pubkey(params, :merkle_tree),
          {:ok, payer} <- get_pubkey(params, :payer),
          {:ok, tree_creator_or_delegate} <- get_pubkey(params, :tree_creator_or_delegate),
-         {:ok, metadata} <- validate_metadata(params[:metadata]) do
+         {:ok, metadata} <- get_metadata(params, :metadata) do
       Native.mint_v1(
-        tree_config,
-        leaf_owner,
-        leaf_delegate,
-        merkle_tree,
-        payer,
-        tree_creator_or_delegate,
+        RustPubkey.to_rust_pubkey(tree_config),
+        RustPubkey.to_rust_pubkey(leaf_owner),
+        RustPubkey.to_rust_pubkey(leaf_delegate),
+        RustPubkey.to_rust_pubkey(merkle_tree),
+        RustPubkey.to_rust_pubkey(payer),
+        RustPubkey.to_rust_pubkey(tree_creator_or_delegate),
         metadata
       )
     else
@@ -122,11 +123,11 @@ defmodule MplBubblegum do
          {:ok, nonce} <- get_integer(params, :nonce),
          {:ok, index} <- get_integer(params, :index) do
       Native.transfer(
-        tree_config,
-        leaf_owner,
-        leaf_delegate,
-        new_leaf_owner,
-        merkle_tree,
+        RustPubkey.to_rust_pubkey(tree_config),
+        RustPubkey.to_rust_pubkey(leaf_owner),
+        RustPubkey.to_rust_pubkey(leaf_delegate),
+        RustPubkey.to_rust_pubkey(new_leaf_owner),
+        RustPubkey.to_rust_pubkey(merkle_tree),
         root,
         data_hash,
         creator_hash,
@@ -191,10 +192,10 @@ defmodule MplBubblegum do
   * `{:ok, asset_id}` - The asset ID
   * `{:error, reason}` - If an error occurs
   """
-  def get_asset_id(tree, nonce) do
-    with {:ok, tree} <- validate_pubkey(tree),
-         {:ok, nonce} <- validate_integer(nonce) do
-      Native.get_asset_id(tree, nonce)
+  def get_asset_id(params) do
+    with {:ok, tree} <- get_pubkey(params, :tree),
+         {:ok, nonce} <- get_integer(params, :nonce) do
+      Native.get_asset_id(RustPubkey.to_rust_pubkey(tree), nonce)
     else
       {:error, reason} -> {:error, reason}
     end
@@ -252,16 +253,15 @@ defmodule MplBubblegum do
     {:error, "Invalid hash format"}
   end
 
-  defp validate_metadata(metadata) when is_map(metadata) do
-    required_fields = [:name, :symbol, :uri, :seller_fee_basis_points]
-
-    with :ok <- validate_required_fields(metadata, required_fields),
-         {:ok, creators} <- validate_creators(Map.get(metadata, :creators, [])) do
-      # Convert metadata to a format that can be passed to Rust
-      {:ok, Map.put(metadata, :creators, creators)}
-    else
-      {:error, reason} -> {:error, reason}
+  defp get_metadata(params, key) do
+    case Map.get(params, key) do
+      nil -> {:error, "Missing required parameter: #{key}"}
+      value -> validate_metadata(value)
     end
+  end
+
+  defp validate_metadata(%MplBubblegum.Types.Metadata{} = metadata) do
+    {:ok, metadata}
   end
 
   defp validate_metadata(_) do

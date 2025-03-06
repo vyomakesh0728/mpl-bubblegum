@@ -1,5 +1,8 @@
 defmodule MplBubblegum.Native do
-  @moduledoc false
+  @moduledoc """
+  Native implemented functions for MplBubblegum.
+  This module is responsible for loading the Rust NIF functions.
+  """
   # This module contains the native implemented functions (NIFs) for the MplBubblegum module.
   # It should not be used directly, but rather through the MplBubblegum module.
 
@@ -31,4 +34,5 @@ defmodule MplBubblegum.Native do
   @doc false
   def get_asset_id(_tree, _nonce),
     do: :erlang.nif_error(:nif_not_loaded)
+
 end
