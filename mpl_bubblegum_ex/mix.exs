@@ -25,7 +25,8 @@ defmodule MplBubblegum.MixProject do
       {:solana, "~> 0.2.0"},
       {:ex_doc, "~> 0.29.0", only: :dev, runtime: false},
       {:b58, "~> 1.0.2"},
-      {:jason, "~> 1.4"}
+      {:jason, "~> 1.4"},
+      {:tesla, "~> 1.4.0"}
     ]
   end
 

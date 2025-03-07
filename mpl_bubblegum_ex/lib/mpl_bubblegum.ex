@@ -28,26 +28,25 @@ defmodule MplBubblegum do
   * `{:ok, transaction}` - The serialized transaction
   * `{:error, reason}` - If an error occurs
   """
-  def create_tree_config(params) do
-    with {:ok, tree_config} <- get_pubkey(params, :tree_config),
-         {:ok, merkle_tree} <- get_pubkey(params, :merkle_tree),
-         {:ok, payer} <- get_pubkey(params, :payer),
-         {:ok, tree_creator} <- get_pubkey(params, :tree_creator),
-         {:ok, max_depth} <- get_integer(params, :max_depth),
-         {:ok, max_buffer_size} <- get_integer(params, :max_buffer_size),
-         public = Map.get(params, :public) do
-      Native.create_tree_config(
-        RustPubkey.to_rust_pubkey(tree_config),
-        RustPubkey.to_rust_pubkey(merkle_tree),
-        RustPubkey.to_rust_pubkey(payer),
-        RustPubkey.to_rust_pubkey(tree_creator),
-        max_depth,
-        max_buffer_size,
-        public
-      )
-    else
-      {:error, reason} -> {:error, reason}
-    end
+  def create_tree_config(%{
+        tree_config: tree_config,
+        merkle_tree: merkle_tree,
+        payer: payer,
+        tree_creator: tree_creator,
+        max_depth: max_depth,
+        max_buffer_size: max_buffer_size,
+        public: public
+      }) do
+    # Call the Rust NIF function
+    Native.create_tree_config(
+      tree_config,
+      merkle_tree,
+      payer,
+      tree_creator,
+      max_depth,
+      max_buffer_size,
+      public
+    )
   end
 
   @doc """
@@ -68,39 +67,38 @@ defmodule MplBubblegum do
   * `{:ok, transaction}` - The serialized transaction
   * `{:error, reason}` - If an error occurs
   """
-  def mint_v1(params) do
-    with {:ok, tree_config} <- get_pubkey(params, :tree_config),
-         {:ok, leaf_owner} <- get_pubkey(params, :leaf_owner),
-         {:ok, leaf_delegate} <- get_pubkey(params, :leaf_delegate),
-         {:ok, merkle_tree} <- get_pubkey(params, :merkle_tree),
-         {:ok, payer} <- get_pubkey(params, :payer),
-         {:ok, tree_creator_or_delegate} <- get_pubkey(params, :tree_creator_or_delegate),
-         {:ok, metadata} <- get_metadata(params, :metadata) do
-      Native.mint_v1(
-        RustPubkey.to_rust_pubkey(tree_config),
-        RustPubkey.to_rust_pubkey(leaf_owner),
-        RustPubkey.to_rust_pubkey(leaf_delegate),
-        RustPubkey.to_rust_pubkey(merkle_tree),
-        RustPubkey.to_rust_pubkey(payer),
-        RustPubkey.to_rust_pubkey(tree_creator_or_delegate),
-        metadata
-      )
-    else
-      {:error, reason} -> {:error, reason}
-    end
+  def mint_v1(%{
+        tree_config: tree_config,
+        leaf_owner: leaf_owner,
+        leaf_delegate: leaf_delegate,
+        merkle_tree: merkle_tree,
+        payer: payer,
+        tree_creator_or_delegate: tree_creator_or_delegate,
+        metadata: metadata
+      }) do
+    # Call the Rust NIF function
+    Native.mint_v1(
+      tree_config,
+      leaf_owner,
+      leaf_delegate,
+      merkle_tree,
+      payer,
+      tree_creator_or_delegate,
+      metadata
+    )
   end
 
   @doc """
-  Transfers a compressed NFT to a new owner.
+  Transfers a compressed NFT.
 
   ## Parameters
 
   * `tree_config` - The public key for the tree configuration account
-  * `leaf_owner` - The public key of the current leaf owner
-  * `leaf_delegate` - The public key of the current leaf delegate
+  * `leaf_owner` - The public key of the leaf owner
+  * `leaf_delegate` - The public key of the leaf delegate
   * `new_leaf_owner` - The public key of the new leaf owner
   * `merkle_tree` - The public key for the merkle tree account
-  * `root` - The current root of the merkle tree
+  * `root` - The root hash of the merkle tree
   * `data_hash` - The data hash of the leaf
   * `creator_hash` - The creator hash of the leaf
   * `nonce` - The nonce of the leaf
@@ -111,36 +109,35 @@ defmodule MplBubblegum do
   * `{:ok, transaction}` - The serialized transaction
   * `{:error, reason}` - If an error occurs
   """
-  def transfer(params) do
-    with {:ok, tree_config} <- get_pubkey(params, :tree_config),
-         {:ok, leaf_owner} <- get_pubkey(params, :leaf_owner),
-         {:ok, leaf_delegate} <- get_pubkey(params, :leaf_delegate),
-         {:ok, new_leaf_owner} <- get_pubkey(params, :new_leaf_owner),
-         {:ok, merkle_tree} <- get_pubkey(params, :merkle_tree),
-         {:ok, root} <- get_hash(params, :root),
-         {:ok, data_hash} <- get_hash(params, :data_hash),
-         {:ok, creator_hash} <- get_hash(params, :creator_hash),
-         {:ok, nonce} <- get_integer(params, :nonce),
-         {:ok, index} <- get_integer(params, :index) do
-      Native.transfer(
-        RustPubkey.to_rust_pubkey(tree_config),
-        RustPubkey.to_rust_pubkey(leaf_owner),
-        RustPubkey.to_rust_pubkey(leaf_delegate),
-        RustPubkey.to_rust_pubkey(new_leaf_owner),
-        RustPubkey.to_rust_pubkey(merkle_tree),
-        root,
-        data_hash,
-        creator_hash,
-        nonce,
-        index
-      )
-    else
-      {:error, reason} -> {:error, reason}
-    end
+  def transfer(%{
+        tree_config: tree_config,
+        leaf_owner: leaf_owner,
+        leaf_delegate: leaf_delegate,
+        new_leaf_owner: new_leaf_owner,
+        merkle_tree: merkle_tree,
+        root: root,
+        data_hash: data_hash,
+        creator_hash: creator_hash,
+        nonce: nonce,
+        index: index
+      }) do
+    # Call the Rust NIF function
+    Native.transfer(
+      tree_config,
+      leaf_owner,
+      leaf_delegate,
+      new_leaf_owner,
+      merkle_tree,
+      root,
+      data_hash,
+      creator_hash,
+      nonce,
+      index
+    )
   end
 
   @doc """
-  Computes the hash of NFT metadata.
+  Hashes the metadata of an NFT.
 
   ## Parameters
 
@@ -152,15 +149,11 @@ defmodule MplBubblegum do
   * `{:error, reason}` - If an error occurs
   """
   def hash_metadata(metadata) do
-    with {:ok, metadata} <- validate_metadata(metadata) do
-      Native.hash_metadata(metadata)
-    else
-      {:error, reason} -> {:error, reason}
-    end
+    Native.hash_metadata(metadata)
   end
 
   @doc """
-  Computes the hash of NFT creators.
+  Hashes the creators of an NFT.
 
   ## Parameters
 
@@ -172,33 +165,24 @@ defmodule MplBubblegum do
   * `{:error, reason}` - If an error occurs
   """
   def hash_creators(creators) do
-    with {:ok, creators} <- validate_creators(creators) do
-      Native.hash_creators(creators)
-    else
-      {:error, reason} -> {:error, reason}
-    end
+    Native.hash_creators(creators)
   end
 
   @doc """
-  Computes the asset ID of an asset given its tree and nonce values.
+  Gets the asset ID for a leaf.
 
   ## Parameters
 
-  * `tree` - The public key of the tree
-  * `nonce` - The nonce of the asset
+  * `tree` - The public key of the merkle tree
+  * `nonce` - The nonce of the leaf
 
   ## Returns
 
   * `{:ok, asset_id}` - The asset ID
   * `{:error, reason}` - If an error occurs
   """
-  def get_asset_id(params) do
-    with {:ok, tree} <- get_pubkey(params, :tree),
-         {:ok, nonce} <- get_integer(params, :nonce) do
-      Native.get_asset_id(RustPubkey.to_rust_pubkey(tree), nonce)
-    else
-      {:error, reason} -> {:error, reason}
-    end
+  def get_asset_id(tree, nonce) do
+    Native.get_asset_id(tree, nonce)
   end
 
   # Helper functions for parameter validation

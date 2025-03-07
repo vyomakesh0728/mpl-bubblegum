@@ -43,6 +43,7 @@ merkle_tree_keypair = Key.pair()
 {_, tree_config_public_key} = tree_config_keypair
 {_, merkle_tree_public_key} = merkle_tree_keypair
 
+# Create Pubkey structs
 tree_config = Pubkey.from_bytes(tree_config_public_key)
 merkle_tree = Pubkey.from_bytes(merkle_tree_public_key)
 payer = Pubkey.from_bytes(payer_public_key)
@@ -51,6 +52,8 @@ tree_creator = Pubkey.from_bytes(tree_creator_public_key)
 IO.puts("Tree config pubkey: #{Pubkey.to_base58(tree_config)}")
 IO.puts("Merkle tree pubkey: #{Pubkey.to_base58(merkle_tree)}")
 
+# Create the parameters map for create_tree_config
+# Pass the bytes directly, not the Pubkey structs
 create_tree_config_params = %{
   tree_config: tree_config.bytes,
   merkle_tree: merkle_tree.bytes,
@@ -60,6 +63,13 @@ create_tree_config_params = %{
   max_buffer_size: 64,
   public: true
 }
+
+# Add this before creating the params map
+IO.inspect(byte_size(tree_config.bytes), label: "Tree config bytes size")
+IO.inspect(tree_config.bytes, label: "Tree config raw bytes")
+IO.inspect(byte_size(merkle_tree.bytes), label: "Merkle tree bytes size")
+IO.inspect(byte_size(payer.bytes), label: "Payer bytes size")
+IO.inspect(byte_size(tree_creator.bytes), label: "Tree creator bytes size")
 
 case MplBubblegum.create_tree_config(create_tree_config_params) do
   {:ok, transaction} ->
