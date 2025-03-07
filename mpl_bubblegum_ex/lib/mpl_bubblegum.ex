@@ -8,7 +8,6 @@ defmodule MplBubblegum do
 
   alias MplBubblegum.Native
   alias MplBubblegum.Types.Pubkey
-  alias MplBubblegum.Native.Pubkey, as: RustPubkey
 
   @doc """
   Creates a new compressed NFT tree configuration.

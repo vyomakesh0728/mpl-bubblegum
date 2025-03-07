@@ -12,7 +12,7 @@ defmodule MplBubblegum.Native.Pubkey do
   end
 
   def to_rust_pubkey(%MplBubblegum.Types.Pubkey{bytes: bytes}) when is_list(bytes) do
-    # If the bytes are already a list, just return the struct as is
+    # If the bytes are already a list, just return the struct as is 
     %MplBubblegum.Types.Pubkey{bytes: bytes}
   end
-end 
+end

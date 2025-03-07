@@ -5,6 +5,7 @@ alias MplBubblegum.Types.Pubkey
 alias Solana.Key
 alias Solana.RPC
 alias Solana.Transaction
+alias MplBubblegum.Native.Pubkey, as: NativePubkey
 
 # Load keypairs from files
 IO.puts("Loading keypairs from files...")
@@ -55,10 +56,10 @@ IO.puts("Merkle tree pubkey: #{Pubkey.to_base58(merkle_tree)}")
 # Create the parameters map for create_tree_config
 # Pass the bytes directly, not the Pubkey structs
 create_tree_config_params = %{
-  tree_config: tree_config.bytes,
-  merkle_tree: merkle_tree.bytes,
-  payer: payer.bytes,
-  tree_creator: tree_creator.bytes,
+  tree_config: NativePubkey.to_rust_pubkey(tree_config),
+  merkle_tree: NativePubkey.to_rust_pubkey(merkle_tree),
+  payer: NativePubkey.to_rust_pubkey(payer),
+  tree_creator: NativePubkey.to_rust_pubkey(tree_creator),
   max_depth: 14,
   max_buffer_size: 64,
   public: true
@@ -86,8 +87,10 @@ case MplBubblegum.create_tree_config(create_tree_config_params) do
     
     # Get a recent blockhash from the Solana network - FIXED VERSION
     IO.puts("\nGetting recent blockhash...")
-    case Solana.RPC.get_latest_blockhash(client) do
-      {:ok, %{blockhash: blockhash}} ->
+    request = {"getLatestBlockhash", []}
+    
+    case RPC.send(client, request) do
+      {:ok, %{"blockhash" => blockhash}} ->
         IO.puts("Got recent blockhash: #{blockhash}")
         
         IO.puts("\nPreparing to sign and submit transaction...")

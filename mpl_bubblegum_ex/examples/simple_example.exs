@@ -1,6 +1,7 @@
 # Simple example usage of the MplBubblegum library
 
 alias MplBubblegum.Types.{Pubkey, Hash, Creator, Collection, Uses, Metadata}
+alias MplBubblegum.Native.Pubkey, as: NativePubkey
 
 # Load keypairs from files
 IO.puts("Loading keypairs from files...")
@@ -57,10 +58,10 @@ IO.puts("Payer: #{inspect(payer)}")
 IO.puts("Tree creator: #{inspect(tree_creator)}")
 
 create_tree_config_params = %{
-  tree_config: tree_config.bytes,
-  merkle_tree: merkle_tree.bytes,
-  payer: payer.bytes,
-  tree_creator: tree_creator.bytes,
+  tree_config: NativePubkey.to_rust_pubkey(tree_config),
+  merkle_tree: NativePubkey.to_rust_pubkey(merkle_tree),
+  payer: NativePubkey.to_rust_pubkey(payer),
+  tree_creator: NativePubkey.to_rust_pubkey(tree_creator),
   max_depth: 14,
   max_buffer_size: 64,
   public: true
