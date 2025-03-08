@@ -17,8 +17,8 @@ use std::str::FromStr;
 use tokio::runtime::Runtime;
 
 #[rustler::nif]
-fn create_tree_config(
-    env: Env,
+fn create_tree_config<'a>(
+    env: Env<'a>,
     tree_config: ElixirPubkey,
     merkle_tree: ElixirPubkey,
     payer: ElixirPubkey,
@@ -26,7 +26,7 @@ fn create_tree_config(
     max_depth: u32,
     max_buffer_size: u32,
     public: Option<bool>,
-) -> NifResult<Term> {
+) -> NifResult<Term<'a>> {
     match instructions::create_tree_config(
         tree_config.into(),
         merkle_tree.into(),
@@ -42,8 +42,8 @@ fn create_tree_config(
 }
 
 #[rustler::nif]
-fn mint_v1(
-    env: Env,
+fn mint_v1<'a>(
+    env: Env<'a>,
     tree_config: ElixirPubkey,
     leaf_owner: ElixirPubkey,
     leaf_delegate: ElixirPubkey,
@@ -51,7 +51,7 @@ fn mint_v1(
     payer: ElixirPubkey,
     tree_creator_or_delegate: ElixirPubkey,
     metadata: ElixirMetadata,
-) -> NifResult<Term> {
+) -> NifResult<Term<'a>> {
     match instructions::mint_v1(
         tree_config.into(),
         leaf_owner.into(),
@@ -67,8 +67,8 @@ fn mint_v1(
 }
 
 #[rustler::nif]
-fn transfer(
-    env: Env,
+fn transfer<'a>(
+    env: Env<'a>,
     tree_config: ElixirPubkey,
     leaf_owner: ElixirPubkey,
     leaf_delegate: ElixirPubkey,
@@ -79,7 +79,7 @@ fn transfer(
     creator_hash: ElixirHash,
     nonce: u64,
     index: u32,
-) -> NifResult<Term> {
+) -> NifResult<Term<'a>> {
     match instructions::transfer(
         tree_config.into(),
         leaf_owner.into(),
@@ -98,7 +98,7 @@ fn transfer(
 }
 
 #[rustler::nif]
-fn hash_metadata(env: Env, metadata: ElixirMetadata) -> NifResult<Term> {
+fn hash_metadata<'a>(env: Env<'a>, metadata: ElixirMetadata) -> NifResult<Term<'a>> {
     match utils::hash_metadata(metadata.try_into()?) {
         Ok(hash) => Ok((atom::ok(), ElixirHash::from(hash)).encode(env)),
         Err(err) => Ok((atom::error(), err.to_string()).encode(env)),
@@ -106,7 +106,7 @@ fn hash_metadata(env: Env, metadata: ElixirMetadata) -> NifResult<Term> {
 }
 
 #[rustler::nif]
-fn hash_creators(env: Env, creators: Vec<types::ElixirCreator>) -> NifResult<Term> {
+fn hash_creators<'a>(env: Env<'a>, creators: Vec<types::ElixirCreator>) -> NifResult<Term<'a>> {
     match utils::hash_creators(creators) {
         Ok(hash) => Ok((atom::ok(), ElixirHash::from(hash)).encode(env)),
         Err(err) => Ok((atom::error(), err.to_string()).encode(env)),
@@ -114,7 +114,7 @@ fn hash_creators(env: Env, creators: Vec<types::ElixirCreator>) -> NifResult<Ter
 }
 
 #[rustler::nif]
-fn get_asset_id(env: Env, tree: ElixirPubkey, nonce: u64) -> NifResult<Term> {
+fn get_asset_id<'a>(env: Env<'a>, tree: ElixirPubkey, nonce: u64) -> NifResult<Term<'a>> {
     match utils::get_asset_id(tree.into(), nonce) {
         Ok(asset_id) => Ok((atom::ok(), ElixirPubkey::from(asset_id)).encode(env)),
         Err(err) => Ok((atom::error(), err.to_string()).encode(env)),
@@ -122,11 +122,11 @@ fn get_asset_id(env: Env, tree: ElixirPubkey, nonce: u64) -> NifResult<Term> {
 }
 
 #[rustler::nif]
-fn sign_and_submit_transaction(
-    env: Env,
-    transaction_binary: Binary,  // Serialized transaction from Elixir
-    payer_secret_key: Binary,    // Payer's secret key
-) -> NifResult<Term> {
+fn sign_and_submit_transaction<'a>(
+    env: Env<'a>,
+    transaction_binary: Binary<'a>,  // Serialized transaction from Elixir
+    payer_secret_key: Binary<'a>,    // Payer's secret key
+) -> NifResult<Term<'a>> {
     // Create a runtime for async operations
     let rt = Runtime::new()
         .map_err(|e| Error::Term(Box::new(format!("Failed to create tokio runtime: {}", e))))?;
@@ -164,7 +164,7 @@ fn sign_and_submit_transaction(
 }
 
 #[rustler::nif]
-fn get_transaction_status(env: Env, signature: String) -> NifResult<Term> {
+fn get_transaction_status<'a>(env: Env<'a>, signature: String) -> NifResult<Term<'a>> {
     // Create a runtime for async operations
     let rt = Runtime::new()
         .map_err(|e| Error::Term(Box::new(format!("Failed to create tokio runtime: {}", e))))?;
@@ -199,7 +199,7 @@ fn get_transaction_status(env: Env, signature: String) -> NifResult<Term> {
 }
 
 #[rustler::nif]
-fn get_account_info(env: Env, pubkey: ElixirPubkey) -> NifResult<Term> {
+fn get_account_info<'a>(env: Env<'a>, pubkey: ElixirPubkey) -> NifResult<Term<'a>> {
     // Create a runtime for async operations
     let rt = Runtime::new()
         .map_err(|e| Error::Term(Box::new(format!("Failed to create tokio runtime: {}", e))))?;
