@@ -22,7 +22,6 @@ defmodule MplBubblegum.MixProject do
   defp deps do
     [
       {:rustler, "~> 0.29.1"},
-      {:solana, "~> 0.2.0"},
       {:ex_doc, "~> 0.29.0", only: :dev, runtime: false},
       {:b58, "~> 1.0.2"},
       {:jason, "~> 1.4"},
