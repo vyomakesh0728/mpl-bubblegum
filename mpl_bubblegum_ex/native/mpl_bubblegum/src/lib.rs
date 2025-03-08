@@ -122,6 +122,15 @@ fn get_asset_id<'a>(env: Env<'a>, tree: ElixirPubkey, nonce: u64) -> NifResult<T
 }
 
 #[rustler::nif]
+fn derive_pubkey_from_secret<'a>(env: Env<'a>, secret_key: Binary<'a>) -> NifResult<Term<'a>> {
+    let secret_key_bytes = secret_key.as_slice();
+    let keypair = Keypair::from_bytes(secret_key_bytes)
+        .map_err(|e| Error::Term(Box::new(format!("Invalid secret key: {}", e))))?;
+    let pubkey = keypair.pubkey();
+    Ok((atom::ok(), ElixirPubkey::from(pubkey)).encode(env))
+}
+
+#[rustler::nif]
 fn sign_and_submit_transaction<'a>(
     env: Env<'a>,
     transaction_binary: Binary<'a>,  // Serialized transaction from Elixir
@@ -247,6 +256,7 @@ rustler::init!(
         get_asset_id,
         sign_and_submit_transaction,
         get_transaction_status,
-        get_account_info
+        get_account_info,
+        derive_pubkey_from_secret
     ]
 );

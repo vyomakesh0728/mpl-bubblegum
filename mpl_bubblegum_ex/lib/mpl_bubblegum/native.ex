@@ -35,4 +35,56 @@ defmodule MplBubblegum.Native do
   def get_asset_id(_tree, _nonce),
     do: :erlang.nif_error(:nif_not_loaded)
 
+  @doc """
+  Derives a public key from a secret key.
+
+  Args:
+    - secret_key: Binary secret key (64 bytes)
+
+  Returns:
+    - {:ok, pubkey} where pubkey is an ElixirPubkey struct
+    - {:error, reason} if an error occurs
+  """
+  def derive_pubkey_from_secret(_secret_key),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Signs and submits a transaction to the Solana network.
+
+  Args:
+    - transaction_binary: Binary serialized transaction
+    - payer_secret_key: Binary secret key of the payer (64 bytes)
+
+  Returns:
+    - {:ok, signature} if successful
+    - {:error, reason} if an error occurs
+  """
+  def sign_and_submit_transaction(_transaction_binary, _payer_secret_key),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Retrieves the status of a transaction from the Solana network.
+
+  Args:
+    - signature: String representing the transaction signature
+
+  Returns:
+    - {:ok, status} where status is "confirmed", "failed: <reason>", or "not_found"
+    - {:error, reason} if an error occurs
+  """
+  def get_transaction_status(_signature),
+    do: :erlang.nif_error(:nif_not_loaded)
+
+  @doc """
+  Retrieves account information from the Solana network.
+
+  Args:
+    - pubkey: ElixirPubkey struct representing the account's public key
+
+  Returns:
+    - {:ok, account_info} where account_info is a map with lamports, owner, etc.
+    - {:error, reason} if an error occurs
+  """
+  def get_account_info(_pubkey),
+    do: :erlang.nif_error(:nif_not_loaded)
 end

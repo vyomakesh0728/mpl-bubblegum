@@ -186,4 +186,80 @@ defmodule MplBubblegum.Types do
     def fungible, do: 2
     def non_fungible_edition, do: 3
   end
+
+  defmodule AccountInfo do
+    @moduledoc """
+    Represents account information retrieved from the Solana network.
+    """
+    @enforce_keys [:lamports, :owner, :executable, :rent_epoch, :data_len]
+    defstruct [:lamports, :owner, :executable, :rent_epoch, :data_len]
+
+    @type t :: %__MODULE__{
+            lamports: non_neg_integer(),
+            owner: String.t(),
+            executable: boolean(),
+            rent_epoch: non_neg_integer(),
+            data_len: non_neg_integer()
+          }
+
+    @doc """
+    Creates an AccountInfo struct from a map returned by the native function.
+
+    ## Parameters
+    - map: A map with string keys "lamports", "owner", "executable", "rent_epoch", "data_len"
+
+    ## Returns
+    - {:ok, AccountInfo.t()} if successful
+    - {:error, reason} if the map is invalid
+    """
+    @spec from_map(map()) :: {:ok, t()} | {:error, String.t()}
+    def from_map(map) when is_map(map) do
+      with {:ok, lamports} <- get_integer(map, "lamports"),
+           {:ok, owner} <- get_string(map, "owner"),
+           {:ok, executable} <- get_boolean(map, "executable"),
+           {:ok, rent_epoch} <- get_integer(map, "rent_epoch"),
+           {:ok, data_len} <- get_integer(map, "data_len") do
+        {:ok, %__MODULE__{
+          lamports: lamports,
+          owner: owner,
+          executable: executable,
+          rent_epoch: rent_epoch,
+          data_len: data_len
+        }}
+      else
+        {:error, reason} -> {:error, reason}
+      end
+    end
+
+    defp get_integer(map, key) do
+      case Map.get(map, key) do
+        nil -> {:error, "Missing #{key}"}
+        value when is_binary(value) ->
+          case Integer.parse(value) do
+            {int, ""} -> {:ok, int}
+            _ -> {:error, "Invalid integer for #{key}"}
+          end
+        value when is_integer(value) -> {:ok, value}
+        _ -> {:error, "Invalid type for #{key}"}
+      end
+    end
+
+    defp get_string(map, key) do
+      case Map.get(map, key) do
+        nil -> {:error, "Missing #{key}"}
+        value when is_binary(value) -> {:ok, value}
+        _ -> {:error, "Invalid type for #{key}"}
+      end
+    end
+
+    defp get_boolean(map, key) do
+      case Map.get(map, key) do
+        nil -> {:error, "Missing #{key}"}
+        value when is_boolean(value) -> {:ok, value}
+        "true" -> {:ok, true}
+        "false" -> {:ok, false}
+        _ -> {:error, "Invalid type for #{key}"}
+      end
+    end
+  end
 end

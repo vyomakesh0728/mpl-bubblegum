@@ -136,6 +136,82 @@ defmodule MplBubblegum do
   end
 
   @doc """
+  Signs and submits a transaction to the Solana network.
+
+  ## Parameters
+
+  * `transaction` - The serialized transaction binary (returned from create_tree_config, mint_v1, or transfer)
+  * `payer_secret_key` - The payer's secret key (binary or base64-encoded string)
+
+  ## Returns
+
+  * `{:ok, signature}` - The transaction signature if successful
+  * `{:error, reason}` - If an error occurs
+  """
+  def sign_and_submit_transaction(transaction, payer_secret_key) when is_binary(transaction) do
+    with {:ok, secret_key_binary} <- normalize_secret_key(payer_secret_key) do
+      Native.sign_and_submit_transaction(transaction, secret_key_binary)
+    end
+  end
+
+  @doc """
+  Gets the status of a transaction on the Solana network.
+
+  ## Parameters
+
+  * `signature` - The transaction signature (string)
+
+  ## Returns
+
+  * `{:ok, status}` - The status ("confirmed", "failed: <reason>", or "not_found")
+  * `{:error, reason}` - If an error occurs
+  """
+  def get_transaction_status(signature) when is_binary(signature) do
+    Native.get_transaction_status(signature)
+  end
+
+  @doc """
+  Gets account information from the Solana network.
+
+  ## Parameters
+
+  * `pubkey` - The public key of the account (Pubkey struct or base58 string)
+
+  ## Returns
+
+  * `{:ok, account_info}` - A map containing account details (lamports, owner, executable, rent_epoch, data_len)
+  * `{:error, reason}` - If an error occurs
+  """
+  def get_account_info(pubkey) do
+    with {:ok, pubkey_struct} <- normalize_pubkey(pubkey),
+         {:ok, account_map} <- Native.get_account_info(pubkey_struct),
+         {:ok, account_info} <- MplBubblegum.Types.AccountInfo.from_map(account_map) do
+      {:ok, account_info}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Helper functions for parameter validation
+
+  defp normalize_secret_key(secret_key) when is_binary(secret_key) do
+    case byte_size(secret_key) do
+      64 -> {:ok, secret_key}  # Already in binary format
+      _ ->
+        case Base.decode64(secret_key) do
+          {:ok, binary} when byte_size(binary) == 64 -> {:ok, binary}
+          _ -> {:error, "Invalid secret key format; must be 64 bytes or base64-encoded 64-byte string"}
+        end
+    end
+  end
+
+  defp normalize_pubkey(%Pubkey{} = pubkey), do: {:ok, pubkey}
+  defp normalize_pubkey(pubkey) when is_binary(pubkey) do
+    Pubkey.from_base58(pubkey)
+  end
+  defp normalize_pubkey(_), do: {:error, "Invalid public key format"}
+
+  @doc """
   Hashes the metadata of an NFT.
 
   ## Parameters
@@ -183,8 +259,6 @@ defmodule MplBubblegum do
   def get_asset_id(tree, nonce) do
     Native.get_asset_id(tree, nonce)
   end
-
-  # Helper functions for parameter validation
 
   defp get_pubkey(params, key) do
     case Map.get(params, key) do
