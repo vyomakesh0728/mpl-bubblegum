@@ -141,16 +141,16 @@ defmodule MplBubblegum do
   ## Parameters
 
   * `transaction` - The serialized transaction binary (returned from create_tree_config, mint_v1, or transfer)
-  * `payer_secret_key` - The payer's secret key (binary or base64-encoded string)
+  * `secret_keys` - A list of secret keys (binary or base64-encoded strings) for all required signers
 
   ## Returns
 
   * `{:ok, signature}` - The transaction signature if successful
   * `{:error, reason}` - If an error occurs
   """
-  def sign_and_submit_transaction(transaction, payer_secret_key) when is_binary(transaction) do
-    with {:ok, secret_key_binary} <- normalize_secret_key(payer_secret_key) do
-      Native.sign_and_submit_transaction(transaction, secret_key_binary)
+  def sign_and_submit_transaction(transaction, secret_keys) when is_binary(transaction) and is_list(secret_keys) do
+    with {:ok, secret_key_binaries} <- normalize_secret_keys(secret_keys) do
+      Native.sign_and_submit_transaction(transaction, secret_key_binaries)
     end
   end
 
@@ -168,6 +168,20 @@ defmodule MplBubblegum do
   """
   def get_transaction_status(signature) when is_binary(signature) do
     Native.get_transaction_status(signature)
+  end
+
+  # Update helper function to handle a list of secret keys
+  defp normalize_secret_keys(secret_keys) do
+    Enum.reduce_while(secret_keys, {:ok, []}, fn key, {:ok, acc} ->
+      case normalize_secret_key(key) do
+        {:ok, binary} -> {:cont, {:ok, [binary | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+         {:ok, list} -> {:ok, Enum.reverse(list)}
+         {:error, reason} -> {:error, reason}
+       end
   end
 
   @doc """

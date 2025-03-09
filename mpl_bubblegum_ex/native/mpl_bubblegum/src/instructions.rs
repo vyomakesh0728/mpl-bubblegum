@@ -33,7 +33,8 @@ pub fn create_tree_config(
 
     let instruction = builder.instruction();
 
-    let message = Message::new(&[instruction], Some(&payer)); // Payer as sole signer
+    // Use Message::new; instruction metadata specifies signers
+    let message = Message::new(&[instruction], Some(&payer));
     let transaction = Transaction::new_unsigned(message);
 
     bincode::serialize(&transaction)
