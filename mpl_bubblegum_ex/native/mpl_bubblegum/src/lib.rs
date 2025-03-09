@@ -151,7 +151,7 @@ fn sign_and_submit_transaction<'a>(
         }
         let keypair_refs: Vec<&Keypair> = keypairs.iter().collect();
 
-        let client = RpcClient::new("https://api.devnet.solana.com".to_string());
+        let client = RpcClient::new("http://127.0.0.1:8899".to_string());
         let recent_blockhash = client.get_latest_blockhash()
             .map_err(|e| format!("Failed to get blockhash: {}", e))?;
         transaction.sign(&keypair_refs, recent_blockhash);
@@ -176,7 +176,7 @@ fn get_transaction_status<'a>(env: Env<'a>, signature: String) -> NifResult<Term
     
     let result = rt.block_on(async {
         // Connect to Solana Devnet to check the transaction status
-        let client = RpcClient::new("https://api.devnet.solana.com".to_string());
+        let client = RpcClient::new("http://127.0.0.1:8899".to_string());
         
         // Parse the signature string
         let signature = match solana_sdk::signature::Signature::from_str(&signature) {
@@ -211,7 +211,7 @@ fn get_account_info<'a>(env: Env<'a>, pubkey: ElixirPubkey) -> NifResult<Term<'a
     
     let result = rt.block_on(async {
         // Connect to Solana Devnet to fetch account info
-        let client = RpcClient::new("https://api.devnet.solana.com".to_string());
+        let client = RpcClient::new("http://127.0.0.1:8899".to_string());
         
         // Convert ElixirPubkey to Solana Pubkey
         let pubkey: SolanaPubkey = pubkey.into();
