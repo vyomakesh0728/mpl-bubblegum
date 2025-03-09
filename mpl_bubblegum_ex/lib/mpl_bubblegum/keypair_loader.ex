@@ -6,20 +6,6 @@ defmodule MplBubblegum.KeypairLoader do
   alias MplBubblegum.Types.Pubkey
   alias MplBubblegum.Native
 
-  @doc """
-  Loads a keypair from a JSON file and derives the public key.
-
-  ## Parameters
-    - filename: Path to the JSON file (e.g., "payer.json")
-
-  ## Returns
-    - `{:ok, %{"public" => base58_string, "secret" => binary}}` on success
-    - `{:error, reason}` if the format is invalid
-
-  ## Notes
-    Expects the JSON to be a 64-byte array (Solana CLI format).
-    Uses a native Rust function to derive the public key from the secret key.
-  """
   def load_keypair(filename) do
     json = Jason.decode!(File.read!(filename))
     case json do
@@ -27,11 +13,10 @@ defmodule MplBubblegum.KeypairLoader do
         secret_key_binary = :binary.list_to_bin(secret_key)
         with {:ok, pubkey} <- Native.derive_pubkey_from_secret(secret_key_binary) do
           {:ok, %{
-            "public" => Base58.encode(Pubkey.to_binary(pubkey)),  # Use Base58.encode/1
+            "public" => Base58.encode(:binary.list_to_bin(pubkey.bytes)),  # Convert list to binary here
             "secret" => secret_key_binary
           }}
         end
-
       _ ->
         {:error, "Invalid keypair JSON format; expected 64-byte array"}
     end

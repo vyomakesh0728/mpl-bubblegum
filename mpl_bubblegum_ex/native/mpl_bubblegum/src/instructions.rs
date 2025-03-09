@@ -1,14 +1,14 @@
 use solana_program::pubkey::Pubkey;
+use solana_sdk::{transaction::Transaction, message::Message};
 use mpl_bubblegum::{
     instructions::{
         CreateTreeConfigBuilder, MintV1Builder, TransferBuilder,
-        CreateTreeConfigInstructionArgs, MintV1InstructionArgs, TransferInstructionArgs,
+        MintV1InstructionArgs, TransferInstructionArgs,
     },
     types::MetadataArgs,
 };
 use crate::error::Error;
 
-/// Creates a transaction for initializing a compressed merkle tree config.
 pub fn create_tree_config(
     tree_config: Pubkey,
     merkle_tree: Pubkey,
@@ -18,14 +18,8 @@ pub fn create_tree_config(
     max_buffer_size: u32,
     public: Option<bool>,
 ) -> Result<Vec<u8>, Error> {
-    let _args = CreateTreeConfigInstructionArgs {
-        max_depth,
-        max_buffer_size,
-        public,
-    };
-
-    let mut builder_init = CreateTreeConfigBuilder::new();
-    let mut builder = builder_init
+    let mut builder = CreateTreeConfigBuilder::new();
+    builder
         .tree_config(tree_config)
         .merkle_tree(merkle_tree)
         .payer(payer)
@@ -34,16 +28,16 @@ pub fn create_tree_config(
         .max_buffer_size(max_buffer_size);
 
     if let Some(public_value) = public {
-        builder = builder.public(public_value);
+        builder.public(public_value);
     }
 
     let instruction = builder.instruction();
 
-    // Serialize the instruction
-    let serialized = bincode::serialize(&instruction)
-        .map_err(|e| Error::Conversion(format!("Failed to serialize instruction: {}", e)))?;
+    let message = Message::new(&[instruction], Some(&payer)); // Payer as sole signer
+    let transaction = Transaction::new_unsigned(message);
 
-    Ok(serialized)
+    bincode::serialize(&transaction)
+        .map_err(|e| Error::Conversion(format!("Failed to serialize transaction: {}", e)))
 }
 
 /// Creates a transaction for minting a compressed NFT.
@@ -58,8 +52,8 @@ pub fn mint_v1(
 ) -> Result<Vec<u8>, Error> {
     let args = MintV1InstructionArgs { metadata };
 
-    let mut builder_init = MintV1Builder::new();
-    let builder = builder_init
+    let mut builder = MintV1Builder::new();
+    builder
         .tree_config(tree_config)
         .leaf_owner(leaf_owner)
         .leaf_delegate(leaf_delegate)
@@ -70,11 +64,15 @@ pub fn mint_v1(
 
     let instruction = builder.instruction();
 
-    // Serialize the instruction
-    let serialized = bincode::serialize(&instruction)
-        .map_err(|e| Error::Conversion(format!("Failed to serialize instruction: {}", e)))?;
+    // Create a Message from the Instruction
+    let message = Message::new(&[instruction], Some(&payer)); // Payer as fee payer
 
-    Ok(serialized)
+    // Create a Transaction
+    let transaction = Transaction::new_unsigned(message);
+
+    // Serialize the transaction
+    bincode::serialize(&transaction)
+        .map_err(|e| Error::Conversion(format!("Failed to serialize transaction: {}", e)))
 }
 
 /// Creates a transaction for transferring a compressed NFT.
@@ -98,8 +96,8 @@ pub fn transfer(
         index,
     };
 
-    let mut builder_init = TransferBuilder::new();
-    let builder = builder_init
+    let mut builder = TransferBuilder::new();
+    builder
         .tree_config(tree_config)
         .leaf_owner(leaf_owner, true) // Assuming leaf_owner is a signer
         .leaf_delegate(leaf_delegate, false) // Assuming leaf_delegate is not a signer
@@ -113,9 +111,13 @@ pub fn transfer(
 
     let instruction = builder.instruction();
 
-    // Serialize the instruction
-    let serialized = bincode::serialize(&instruction)
-        .map_err(|e| Error::Conversion(format!("Failed to serialize instruction: {}", e)))?;
+    // Create a Message from the Instruction
+    let message = Message::new(&[instruction], Some(&leaf_owner)); // Leaf owner as fee payer
 
-    Ok(serialized)
+    // Create a Transaction
+    let transaction = Transaction::new_unsigned(message);
+
+    // Serialize the transaction
+    bincode::serialize(&transaction)
+        .map_err(|e| Error::Conversion(format!("Failed to serialize transaction: {}", e)))
 }

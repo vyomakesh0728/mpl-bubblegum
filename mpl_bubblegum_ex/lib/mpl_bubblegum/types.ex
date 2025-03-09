@@ -11,7 +11,7 @@ defmodule MplBubblegum.Types do
     defstruct [:bytes]
 
     @type t :: %__MODULE__{
-            bytes: binary() | list(integer())
+            bytes: list(integer()) | binary()
           }
 
     @doc """
@@ -19,10 +19,9 @@ defmodule MplBubblegum.Types do
     """
     @spec from_base58(String.t()) :: {:ok, t()} | {:error, atom() | String.t()}
     def from_base58(base58) do
-      case B58.decode58(base58) do
-        {:ok, bytes} when byte_size(bytes) == 32 -> {:ok, %__MODULE__{bytes: bytes}}
-        {:ok, _} -> {:error, :invalid_length}
-        {:error, reason} -> {:error, reason}
+      case Base58.decode(base58) do
+        bytes when byte_size(bytes) == 32 -> {:ok, %__MODULE__{bytes: :binary.bin_to_list(bytes)}}
+        _ -> {:error, "Invalid base58 public key"}
       end
     end
 
@@ -30,16 +29,11 @@ defmodule MplBubblegum.Types do
     Converts a Pubkey to a base58 string.
     """
     @spec to_base58(t()) :: String.t()
-    def to_base58(%__MODULE__{bytes: bytes}) do
-      B58.encode58(bytes)
+    def to_base58(%__MODULE__{bytes: bytes}) when is_list(bytes) do
+      Base58.encode(:binary.list_to_bin(bytes))
     end
-
-    @doc """
-    Creates a new Pubkey from bytes.
-    """
-    @spec from_bytes(binary()) :: t()
-    def from_bytes(bytes) when byte_size(bytes) == 32 do
-      %__MODULE__{bytes: bytes}
+    def to_base58(%__MODULE__{bytes: bytes}) when is_binary(bytes) do
+      Base58.encode(bytes)
     end
   end
 

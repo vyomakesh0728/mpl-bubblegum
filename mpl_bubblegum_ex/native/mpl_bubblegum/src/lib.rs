@@ -133,36 +133,32 @@ fn derive_pubkey_from_secret<'a>(env: Env<'a>, secret_key: Binary<'a>) -> NifRes
 #[rustler::nif]
 fn sign_and_submit_transaction<'a>(
     env: Env<'a>,
-    transaction_binary: Binary<'a>,  // Serialized transaction from Elixir
-    payer_secret_key: Binary<'a>,    // Payer's secret key
+    transaction_binary: Binary<'a>,
+    secret_keys: Vec<Binary<'a>>, // Changed to accept a vector of secret keys
 ) -> NifResult<Term<'a>> {
-    // Create a runtime for async operations
-    let rt = Runtime::new()
-        .map_err(|e| Error::Term(Box::new(format!("Failed to create tokio runtime: {}", e))))?;
-    
+    let rt = Runtime::new().map_err(|e| Error::Term(Box::new(format!("Failed to create runtime: {}", e))))?;
     let result = rt.block_on(async {
-        // Step 1: Deserialize the transaction from binary input
         let transaction_bytes = transaction_binary.as_slice();
         let mut transaction: Transaction = bincode::deserialize(transaction_bytes)
             .map_err(|e| format!("Failed to deserialize transaction: {}", e))?;
 
-        // Step 2: Construct a keypair from the payer's secret key
-        let secret_key_bytes = payer_secret_key.as_slice();
-        let payer_keypair = Keypair::from_bytes(secret_key_bytes)
-            .map_err(|e| format!("Failed to create keypair: {}", e))?;
+        // Convert each secret key binary to a Keypair
+        let mut keypairs = Vec::new();
+        for secret_key in secret_keys {
+            let keypair = Keypair::from_bytes(secret_key.as_slice())
+                .map_err(|e| format!("Failed to create keypair: {}", e))?;
+            keypairs.push(keypair);
+        }
+        let keypair_refs: Vec<&Keypair> = keypairs.iter().collect();
 
-        // Step 3: Fetch a recent blockhash from the Devnet RPC endpoint
         let client = RpcClient::new("https://api.devnet.solana.com".to_string());
         let recent_blockhash = client.get_latest_blockhash()
             .map_err(|e| format!("Failed to get blockhash: {}", e))?;
-
-        // Step 4: Sign the transaction with the keypair and blockhash
-        transaction.sign(&[&payer_keypair], recent_blockhash);
-
-        // Step 5: Submit the signed transaction to Devnet and return the signature
+        transaction.sign(&keypair_refs, recent_blockhash);
+        let signature = transaction.signatures[0].to_string(); // Log signature for demo
+        println!("Transaction signed with signature: {}", signature);
         let signature = client.send_and_confirm_transaction(&transaction)
             .map_err(|e| format!("Failed to submit transaction: {}", e))?;
-
         Ok::<String, String>(signature.to_string())
     });
 

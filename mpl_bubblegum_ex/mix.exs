@@ -23,10 +23,9 @@ defmodule MplBubblegum.MixProject do
     [
       {:rustler, "~> 0.29.1"},
       {:ex_doc, "~> 0.29.0", only: :dev, runtime: false},
-      {:b58, "~> 1.0.2"},
+      {:b58, "~> 1.0.3"},
       {:jason, "~> 1.4"},
-      {:tesla, "~> 1.4.0"},
-      {:base58, "~> 0.1.0"}
+      {:tesla, "~> 1.4.0"}
     ]
   end
 
