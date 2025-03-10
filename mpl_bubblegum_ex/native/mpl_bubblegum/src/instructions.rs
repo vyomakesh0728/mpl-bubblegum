@@ -1,12 +1,21 @@
 use solana_program::pubkey::Pubkey;
-use solana_sdk::{transaction::Transaction, message::Message};
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    transaction::Transaction,
+    message::Message,
+    system_instruction,
+    rent::Rent,
+};
 use mpl_bubblegum::{
     instructions::{
         CreateTreeConfigBuilder, MintV1Builder, TransferBuilder,
         MintV1InstructionArgs, TransferInstructionArgs,
     },
     types::MetadataArgs,
+    ID as BUBBLEGUM_ID,
 };
+use spl_account_compression::ID as SPL_ACCOUNT_COMPRESSION_ID;
+use spl_noop::ID as SPL_NOOP_ID;
 use crate::error::Error;
 
 pub fn create_tree_config(
@@ -18,6 +27,36 @@ pub fn create_tree_config(
     max_buffer_size: u32,
     public: Option<bool>,
 ) -> Result<Vec<u8>, Error> {
+    let rent = Rent::default();
+
+    // Space and rent for tree_config
+    let tree_config_space = 8 + 32 + 1; // Discriminator + pubkey + bool (simplified)
+    let tree_config_lamports = rent.minimum_balance(tree_config_space);
+
+    // Space and rent for merkle_tree
+    let merkle_tree_space = get_merkle_tree_size(max_depth, max_buffer_size);
+    let merkle_tree_lamports = rent.minimum_balance(merkle_tree_space);
+
+    let mut instructions = vec![
+        // Create tree_config account
+        system_instruction::create_account(
+            &payer,
+            &tree_config,
+            tree_config_lamports,
+            tree_config_space as u64,
+            &BUBBLEGUM_ID,
+        ),
+        // Create merkle_tree account
+        system_instruction::create_account(
+            &payer,
+            &merkle_tree,
+            merkle_tree_lamports,
+            merkle_tree_space as u64,
+            &SPL_ACCOUNT_COMPRESSION_ID,
+        ),
+    ];
+
+    // Add the create_tree_config instruction
     let mut builder = CreateTreeConfigBuilder::new();
     builder
         .tree_config(tree_config)
@@ -32,9 +71,10 @@ pub fn create_tree_config(
     }
 
     let instruction = builder.instruction();
+    instructions.push(instruction);
 
-    // Use Message::new; instruction metadata specifies signers
-    let message = Message::new(&[instruction], Some(&payer));
+    // Create a Message from the Instructions
+    let message = Message::new(&instructions, Some(&payer));
     let transaction = Transaction::new_unsigned(message);
 
     bincode::serialize(&transaction)
@@ -121,4 +161,13 @@ pub fn transfer(
     // Serialize the transaction
     bincode::serialize(&transaction)
         .map_err(|e| Error::Conversion(format!("Failed to serialize transaction: {}", e)))
+}
+
+/// Helper function to calculate the size needed for a merkle tree account
+fn get_merkle_tree_size(max_depth: u32, max_buffer_size: u32) -> usize {
+    let header_size = 8 + 32 + 32; // Discriminator + pubkey + misc
+    let canopy_size = (1 << (max_depth - 1)) * 32; // Simplified canopy
+    let tree_size = (1 << (max_depth + 1)) * 32; // Nodes
+    let buffer_size = max_buffer_size as usize * 32;
+    header_size + canopy_size + tree_size + buffer_size
 }
