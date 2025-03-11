@@ -1,5 +1,5 @@
-use rustler::{NifStruct, NifResult, Error};
-use solana_program::pubkey::Pubkey;
+use rustler::{NifStruct, Error};
+use solana_sdk::pubkey::Pubkey;
 use mpl_bubblegum::types::{MetadataArgs, Creator, TokenProgramVersion, TokenStandard, Collection, Uses};
 use std::convert::{TryFrom, TryInto};
 

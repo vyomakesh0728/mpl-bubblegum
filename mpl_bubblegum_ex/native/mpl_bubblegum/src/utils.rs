@@ -1,4 +1,4 @@
-use solana_program::pubkey::Pubkey;
+use solana_sdk::pubkey::Pubkey;
 use mpl_bubblegum::{
     hash::{hash_metadata as bubblegum_hash_metadata, hash_creators as bubblegum_hash_creators},
     utils::get_asset_id as bubblegum_get_asset_id,

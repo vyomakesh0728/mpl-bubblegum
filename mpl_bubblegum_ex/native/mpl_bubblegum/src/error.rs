@@ -1,10 +1,11 @@
 use thiserror::Error;
 use rustler::Error as NifError;
+use solana_sdk::program_error::ProgramError;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Solana program error: {0}")]
-    SolanaProgram(#[from] solana_program::program_error::ProgramError),
+    #[error("Solana SDK error: {0}")]
+    SolanaProgram(#[from] solana_sdk::program_error::ProgramError),
 
     #[error("Borsh serialization error: {0}")]
     Borsh(#[from] borsh::maybestd::io::Error),
