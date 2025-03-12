@@ -15,11 +15,20 @@ tree_creator_secret = tree_creator_json["secret"]
 
 # Load tree config keypair
 {:ok, tree_config_json} = KeypairLoader.load_keypair("tree_config.json")
+tree_config_secret = tree_config_json["secret"]
 {:ok, tree_config} = Pubkey.from_base58(tree_config_json["public"])
 
 # Load merkle tree keypair
 {:ok, merkle_tree_json} = KeypairLoader.load_keypair("merkle_tree.json")
+merkle_tree_secret = merkle_tree_json["secret"]
 {:ok, merkle_tree} = Pubkey.from_base58(merkle_tree_json["public"])
+
+# Fund accounts (assuming local test validator)
+for account <- [payer_json["public"], tree_creator_json["public"], tree_config_json["public"], merkle_tree_json["public"]] do
+  {output, status} = System.cmd("solana", ["airdrop", "10", account, "--url", "http://127.0.0.1:8899"])
+  if status != 0, do: IO.puts("Airdrop failed for #{account}: #{output}")
+  Process.sleep(1000) # Wait between airdrops to avoid rate limiting
+end
 
 # Create tree config transaction
 params = %{
@@ -42,7 +51,7 @@ case MplBubblegum.create_tree_config(params) do
   {:ok, transaction} ->
     transaction_binary = :binary.list_to_bin(transaction)
     IO.puts("Transaction created (size: #{byte_size(transaction_binary)} bytes). Signing and submitting...")
-    case MplBubblegum.sign_and_submit_transaction(transaction_binary, [payer_secret, tree_creator_secret]) do
+    case MplBubblegum.sign_and_submit_transaction(transaction_binary, [payer_secret, tree_creator_secret, tree_config_secret, merkle_tree_secret]) do
       {:ok, signature} ->
         IO.puts("Transaction submitted with signature: #{signature}")
         Process.sleep(2000)

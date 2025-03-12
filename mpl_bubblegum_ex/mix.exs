@@ -26,6 +26,7 @@ defmodule MplBubblegum.MixProject do
       {:b58, "~> 1.0.3"},
       {:jason, "~> 1.4"},
       {:tesla, "~> 1.4.0"}
+
     ]
   end
 
