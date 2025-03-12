@@ -14,9 +14,9 @@ defmodule TransferTest do
     {secret, pubkey}
   end
 
-  # Helper to generate mock hashes as lists (32 bytes)
+  # Helper to generate a 32-byte binary hash
   defp generate_hash do
-    :crypto.strong_rand_bytes(32) |> :binary.bin_to_list()
+    :crypto.strong_rand_bytes(32)
   end
 
   describe "transfer/1" do
@@ -102,7 +102,7 @@ defmodule TransferTest do
       case result do
         {:ok, signature} ->
           assert is_binary(signature)
-          assert byte_size(signature) == 88
+          assert byte_size(signature) == 88 # Base58-encoded signature length
         {:error, reason} ->
           assert is_binary(reason)
       end
