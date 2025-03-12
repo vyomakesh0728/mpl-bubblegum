@@ -74,21 +74,25 @@ fn transfer<'a>(
     leaf_delegate: ElixirPubkey,
     new_leaf_owner: ElixirPubkey,
     merkle_tree: ElixirPubkey,
-    root: ElixirHash,
-    data_hash: ElixirHash,
-    creator_hash: ElixirHash,
+    root: Vec<u8>,
+    data_hash: Vec<u8>,
+    creator_hash: Vec<u8>,
     nonce: u64,
     index: u32,
 ) -> NifResult<Term<'a>> {
+    let root_array: [u8; 32] = root.try_into().map_err(|_| Error::Term(Box::new("root must be 32 bytes")))?;
+    let data_hash_array: [u8; 32] = data_hash.try_into().map_err(|_| Error::Term(Box::new("data_hash must be 32 bytes")))?;
+    let creator_hash_array: [u8; 32] = creator_hash.try_into().map_err(|_| Error::Term(Box::new("creator_hash must be 32 bytes")))?;
+
     match instructions::transfer(
         tree_config.into(),
         leaf_owner.into(),
         leaf_delegate.into(),
         new_leaf_owner.into(),
         merkle_tree.into(),
-        root.into(),
-        data_hash.into(),
-        creator_hash.into(),
+        root_array,
+        data_hash_array,
+        creator_hash_array,
         nonce,
         index,
     ) {

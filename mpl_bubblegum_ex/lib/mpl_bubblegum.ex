@@ -8,6 +8,7 @@ defmodule MplBubblegum do
 
   alias MplBubblegum.Native
   alias MplBubblegum.Types.Pubkey
+  alias MplBubblegum.Types.Hash
 
   @doc """
   Creates a new compressed NFT tree configuration.
@@ -108,31 +109,37 @@ defmodule MplBubblegum do
   * `{:ok, transaction}` - The serialized transaction
   * `{:error, reason}` - If an error occurs
   """
-  def transfer(%{
-        tree_config: tree_config,
-        leaf_owner: leaf_owner,
-        leaf_delegate: leaf_delegate,
-        new_leaf_owner: new_leaf_owner,
-        merkle_tree: merkle_tree,
-        root: root,
-        data_hash: data_hash,
-        creator_hash: creator_hash,
-        nonce: nonce,
-        index: index
-      }) do
-    # Call the Rust NIF function
-    Native.transfer(
-      tree_config,
-      leaf_owner,
-      leaf_delegate,
-      new_leaf_owner,
-      merkle_tree,
-      root,
-      data_hash,
-      creator_hash,
-      nonce,
-      index
-    )
+
+  def transfer(params) do
+  with {:ok, tree_config} <- get_pubkey(params, :tree_config),
+       {:ok, leaf_owner} <- get_pubkey(params, :leaf_owner),
+       {:ok, leaf_delegate} <- get_pubkey(params, :leaf_delegate),
+       {:ok, new_leaf_owner} <- get_pubkey(params, :new_leaf_owner),
+       {:ok, merkle_tree} <- get_pubkey(params, :merkle_tree),
+       {:ok, root} <- get_hash(params, :root),
+       {:ok, data_hash} <- get_hash(params, :data_hash),
+       {:ok, creator_hash} <- get_hash(params, :creator_hash),
+       {:ok, nonce} <- get_integer(params, :nonce),
+       {:ok, index} <- get_integer(params, :index) do
+    try do
+      Native.transfer(
+        tree_config,
+        leaf_owner,
+        leaf_delegate,
+        new_leaf_owner,
+        merkle_tree,
+        root.bytes,
+        data_hash.bytes,
+        creator_hash.bytes,
+        nonce,
+        index
+      )
+    rescue
+      ArgumentError -> {:error, "Native transfer failed"}
+    end
+  else
+    {:error, reason} -> {:error, reason}
+    end
   end
 
   @doc """
@@ -184,7 +191,7 @@ defmodule MplBubblegum do
        end
   end
 
-  @doc """
+   @doc """
   Gets account information from the Solana network.
 
   ## Parameters
@@ -287,7 +294,7 @@ defmodule MplBubblegum do
   end
 
   defp validate_pubkey(pubkey) when is_binary(pubkey) and byte_size(pubkey) == 32 do
-    {:ok, %MplBubblegum.Types.Pubkey{bytes: pubkey}}
+    {:ok, %MplBubblegum.Types.Pubkey{bytes: :binary.bin_to_list(pubkey)}}
   end
 
   defp validate_pubkey(_) do
@@ -297,31 +304,18 @@ defmodule MplBubblegum do
   defp get_integer(params, key) do
     case Map.get(params, key) do
       nil -> {:error, "Missing required parameter: #{key}"}
-      value -> validate_integer(value)
+      value when is_integer(value) -> {:ok, value}
+      _ -> {:error, "Invalid integer format for #{key}"}
     end
-  end
-
-  defp validate_integer(value) when is_integer(value) do
-    {:ok, value}
-  end
-
-  defp validate_integer(_) do
-    {:error, "Invalid integer format"}
   end
 
   defp get_hash(params, key) do
     case Map.get(params, key) do
       nil -> {:error, "Missing required parameter: #{key}"}
-      value -> validate_hash(value)
+      %MplBubblegum.Types.Hash{bytes: bytes} = hash when is_binary(bytes) and byte_size(bytes) == 32 -> {:ok, hash}
+      value when is_binary(value) and byte_size(value) == 32 -> {:ok, %MplBubblegum.Types.Hash{bytes: value}}
+      _ -> {:error, "Invalid hash format"}
     end
-  end
-
-  defp validate_hash(hash) when is_binary(hash) and byte_size(hash) == 32 do
-    {:ok, hash}
-  end
-
-  defp validate_hash(_) do
-    {:error, "Invalid hash format"}
   end
 
   defp get_metadata(params, key) do
